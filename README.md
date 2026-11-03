@@ -324,69 +324,128 @@ One image upload also returned HTTP 400 because the uploaded image content did n
 
 These observations are documented as limitations rather than treated as resolved issues.
 
+
 ## 8. Model Evaluation
 
-Model evaluation determines how accurately and efficiently a trained model performs.
+The objective was to identify a model that balances detection accuracy, missed detections, false alarms, model size and processing speed.
+
+### Evaluation Dataset
+
+The original model comparison used a held-out test dataset containing:
+
+- **14 test images**
+- **49 labelled objects**
+- **15 shock absorbers**
+- **34 cylinders**
+
+The test dataset was used to measure how well the trained models performed on images outside their training data.
+
+Because the test dataset was relatively small, these results should be treated as initial evaluation findings rather than a guarantee of real-world accuracy.
 
 ### Evaluation Metrics
 
-| Metric | Explanation | Importance |
-|---|---|---|
-| Precision | Percentage of predicted objects that are correct | Helps measure false alarms |
-| Recall | Percentage of actual objects successfully detected | Helps measure missed objects |
-| mAP@50 | Detection performance using a 50% bounding-box overlap threshold | Measures detection quality |
-| mAP@50–95 | Average detection performance across several overlap thresholds | Provides a stricter evaluation |
-| Per-Class Performance | Detection results for individual object categories | Helps identify weaker classes |
-| Inference Time | Time required to generate a prediction | Measures model speed |
-| Model Size | Storage required by the model | Helps assess deployment requirements |
+| Metric | What it measures |
+|---|---|
+| Precision | How many predicted objects were correct |
+| Recall | How many actual objects were successfully detected |
+| mAP@50 | Overall detection performance at a 50% bounding-box overlap threshold |
+| mAP@50–95 | Average detection performance across increasingly strict overlap thresholds |
+| Per-class Recall | Detection success rate for each object category |
+| Parameters | Number of learnable parameters in the model |
+| GFLOPs | Approximate computational work required for inference |
+| Inference Time | Time required to process an image |
 
-### Understanding Prediction Outcomes
+### Model Comparison — Original Training
 
-**True Positive (TP)**
+| Model | Precision | Recall | mAP@50 | mAP@50–95 |
+|---|---:|---:|---:|---:|
+| YOLOv8n | 0.830 | 0.435 | **0.556** | 0.333 |
+| YOLOv8s | **0.848** | **0.453** | 0.503 | 0.326 |
+| YOLO26n | 0.676 | 0.438 | 0.535 | **0.378** |
 
-The model correctly identifies an object.
+**Key findings:**
 
-Example: A shock absorber is present and the model detects it.
+- YOLOv8s achieved the highest precision and overall recall.
+- YOLOv8n achieved the highest mAP@50.
+- YOLO26n achieved the highest mAP@50–95.
+- No single model performed best across every metric.
 
-**False Positive (FP)**
+### Per-Class Recall — Original Training
 
-The model predicts an object that is not actually present.
+| Model | Shock Absorber Recall | Cylinder Recall |
+|---|---:|---:|
+| YOLOv8n | 0.400 | 0.471 |
+| YOLOv8s | 0.400 | 0.506 |
+| YOLO26n | 0.333 | **0.543** |
 
-Example: A person's face is incorrectly classified as a cylinder.
+The selected YOLO26n model detected approximately 33% of labelled shock absorbers and 54% of labelled cylinders in the test set, according to the recorded per-class recall values.
 
-**False Negative (FN)**
+These results show that missed detections remain an important limitation, especially for shock absorbers.
 
-The model misses an object that is actually present.
+### Original vs Balanced Training
 
-Example: A cylinder is visible, but the model does not detect it.
+Additional experiments investigated whether balancing and augmenting the training data could improve detection.
 
-### Understanding IoU
+| Model | Training | Precision | Recall | mAP@50 | mAP@50–95 |
+|---|---|---:|---:|---:|---:|
+| YOLOv8n | Original | 0.830 | 0.435 | 0.556 | 0.333 |
+| YOLOv8n | Balanced | 0.631 | 0.513 | 0.512 | 0.313 |
+| YOLOv8s | Original | 0.848 | 0.453 | 0.503 | 0.326 |
+| YOLOv8s | Balanced | 0.526 | 0.509 | 0.493 | 0.301 |
+| YOLO26n | Original | 0.676 | 0.438 | 0.535 | 0.378 |
+| YOLO26n | Balanced | 0.490 | 0.447 | 0.452 | 0.297 |
 
-Intersection over Union (IoU) measures how closely a predicted bounding box overlaps the actual labelled bounding box.
+**Findings:**
 
-A higher IoU generally indicates more accurate object localisation.
+- Balancing improved overall recall for all three models.
+- Precision decreased for all three models.
+- mAP@50–95 also decreased for all three models.
+- The experiments demonstrated a trade-off between detecting more objects and maintaining prediction quality.
 
-### Model Inference Performance
+The balanced results are the values recorded in the experiment comparison summary. Differences previously noted between summary entries and saved test outputs should be reconciled before treating these as independently verified results.
 
-The selected YOLO26n model was benchmarked locally using a synthetic 640 × 640 image.
+### Model Complexity Comparison
 
-The benchmark included three warm-up predictions followed by ten measured predictions.
+| Model | Parameters | GFLOPs | Recorded Inference Time |
+|---|---:|---:|---:|
+| YOLOv8n | 3.006M | 8.1 | ~6.8 ms |
+| YOLOv8s | 11.126M | 28.4 | ~12.5 ms |
+| YOLO26n | **2.375M** | **5.3** | **~5.3 ms** |
+
+YOLO26n had the smallest model footprint and lowest recorded computational requirement among the three original models.
+
+### Final Model Selection
+
+**Selected model: YOLO26n — Original Training**
+
+The model was selected because:
+
+1. It achieved the highest mAP@50–95 of **0.378**.
+2. It had the smallest parameter count at **2.375 million**.
+3. It required the lowest recorded computational workload at **5.3 GFLOPs**.
+4. It provided a practical balance between model size, processing speed and detection performance.
+
+However, its relatively low recall means it is not yet suitable for safety-critical decisions without further improvements and human verification.
+
+### Local Model Inference Benchmark
+
+The deployed YOLO26n model was separately benchmarked using a synthetic 640 × 640 image, with three warm-up predictions and ten measured predictions.
 
 | Metric | Result |
 |---|---:|
-| Average inference time | 22.8 ms |
+| Average inference time | **22.8 ms** |
 | Minimum inference time | 22.3 ms |
 | Maximum inference time | 23.3 ms |
 
-These results measure model inference under local test conditions.
+These local application measurements differ from the earlier model-comparison inference timings because the benchmark conditions were different. They should not be compared directly.
 
-### API Performance
+### API Performance Benchmark
 
-The combined detection API was tested using 20 sequential requests after three warm-up requests.
+The combined detection API was benchmarked using 20 sequential requests after three warm-up requests.
 
 | Metric | Result |
 |---|---:|
-| Average response time | 27.8 ms |
+| Average response time | **27.8 ms** |
 | Median response time | 26.9 ms |
 | Minimum response time | 25.8 ms |
 | Maximum response time | 43.6 ms |
@@ -394,24 +453,28 @@ The combined detection API was tested using 20 sequential requests after three w
 
 The benchmark used a synthetic PNG image and the `/api/detect/combined` endpoint.
 
-### Performance Interpretation
+These measurements represent local test conditions, not guaranteed production response times.
 
-The results demonstrate that the application can provide responsive object detection in the tested local environment.
+### Application Quality Evaluation
 
-However:
+| Measurement | Result |
+|---|---|
+| Automated tests | **18 passed, 0 failed** |
+| Live camera detection | Successfully detected a real shock absorber |
+| False-positive observation | A face was incorrectly detected as a cylinder at approximately 82% confidence |
+| Input validation | JPEG/PNG checks, 10 MB upload limit and 20-megapixel resolution limit |
+| Concurrency protection | Model inference protected by a lock |
 
-- These measurements are not production performance guarantees.
-- Results may differ depending on hardware.
-- API latency does not directly represent live camera frame rate.
-- Fast inference does not necessarily mean high detection accuracy.
+### Overall Evaluation Conclusion
 
-### Evaluation Conclusion
+The experiments demonstrated that YOLO26n offered the strongest mAP@50–95 result among the original models while maintaining the smallest computational footprint.
 
-The selected model successfully detected real shock absorbers during manual testing.
+Balanced training improved recall but reduced precision and mAP@50–95, so the original YOLO26n checkpoint was retained for deployment.
 
-The model also produced false-positive detections, showing that further testing with varied backgrounds and unrelated objects would be valuable.
+The deployed application passed all 18 automated tests and achieved an average local API response time of 27.8 ms.
 
-The project's local speed benchmarks and functional tests demonstrate application performance, while a full assessment of detection accuracy requires the labelled test-set evaluation results.
+**Important limitation:** Detection recall remained relatively low, particularly for shock absorbers. More training data, improved class representation, additional negative examples and testing on a larger independent dataset are recommended before any safety-sensitive use.
+
 
 ## 9. Model Deployment
 
