@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>HazWaste Vision | AI Object Detection</title>
+    <meta
+      name="description"
+      content="YOLO-powered hazardous object detection dashboard."
+    />
+
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+
+  <body>
+    <div class="app-layout">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-icon">◈</div>
+          <div>
+            <h2>HazWaste Vision</h2>
+            <p>Computer Vision Platform</p>
+          </div>
+        </div>
+
+        <nav class="navigation">
+          <a href="#dashboard" class="nav-link active"> Dashboard </a>
+          <a href="#upload" class="nav-link"> Image Detection </a>
+          <a href="#camera" class="nav-link"> Live Camera </a>
+          <a href="#model-info" class="nav-link"> Model Information </a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <span class="status-dot"></span>
+          YOLO26n · Original Model
+        </div>
+      </aside>
+
+      <!-- Main content -->
+      <main class="main-content" id="dashboard">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">AI COMPUTER VISION</p>
+            <h1>Hazardous Object Detection</h1>
+            <p class="subtitle">
+              Detect shock absorbers and cylinders using a trained YOLO26n
+              model.
+            </p>
+          </div>
+          <div class="model-badge">YOLO26n</div>
+        </header>
+
+        <!-- Summary cards -->
+        <section class="stats-grid">
+          <article class="stat-card">
+            <p>Objects Detected</p>
+            <h2 id="total-detections">0</h2>
+            <span>Current analysis</span>
+          </article>
+
+          <article class="stat-card">
+            <p>Shock Absorbers</p>
+            <h2 id="shock-count">0</h2>
+            <span>Class 0</span>
+          </article>
+
+          <article class="stat-card">
+            <p>Cylinders</p>
+            <h2 id="cylinder-count">0</h2>
+            <span>Class 1</span>
+          </article>
+
+          <article class="stat-card">
+            <p>Confidence Threshold</p>
+            <h2 id="threshold-stat">25%</h2>
+            <span>Adjustable detection setting</span>
+          </article>
+        </section>
+
+        <!-- Detection workspace -->
+        <section class="workspace-grid">
+          <article class="panel" id="upload">
+            <div class="panel-heading">
+              <h2>Image Detection</h2>
+              <p>Upload an image to identify target objects.</p>
+            </div>
+
+            <div class="upload-zone" id="upload-zone">
+              <div class="upload-icon">↑</div>
+              <h3>Drag and drop your image</h3>
+              <p>or select a file from your computer</p>
+
+              <label for="image-input" class="primary-button">
+                Browse Image
+              </label>
+
+              <input
+                type="file"
+                id="image-input"
+                accept="image/jpeg,image/png"
+                hidden
+              />
+
+              <small>JPEG or PNG · Maximum 10 MB</small>
+            </div>
+
+            <div class="selected-file" id="selected-file">
+              No image selected
+            </div>
+
+            <div class="threshold-control">
+              <div class="control-heading">
+                <label for="confidence-slider"> Confidence Threshold </label>
+                <strong id="confidence-value">25%</strong>
+              </div>
+
+              <input
+                type="range"
+                id="confidence-slider"
+                min="5"
+                max="95"
+                value="25"
+                step="5"
+              />
+            </div>
+
+            <button
+              class="primary-button analyze-button"
+              id="analyze-button"
+              disabled
+            >
+              Run Detection
+            </button>
+          </article>
+
+          <!-- Detection preview -->
+          <article class="panel results-panel">
+            <div class="panel-heading">
+              <h2>Detection Preview</h2>
+              <p>View the model's annotated predictions.</p>
+            </div>
+
+            <div class="preview-container" id="preview-container">
+              <div class="empty-preview" id="empty-preview">
+                <div class="preview-icon">▧</div>
+                <h3>No analysis yet</h3>
+                <p>Upload an image and run detection to view the results.</p>
+              </div>
+
+              <img id="result-image" alt="Annotated detection result" hidden />
+            </div>
+
+            <p
+              class="result-status"
+              id="result-status"
+              role="status"
+              aria-live="polite"
+            >
+              Waiting for an image
+            </p>
+          </article>
+        </section>
+
+        <!-- Detection details -->
+        <section class="panel details-panel">
+          <div class="panel-heading">
+            <h2>Detection Details</h2>
+            <p>Object classes, confidence and bounding boxes.</p>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Object Class</th>
+                  <th>Confidence</th>
+                  <th>Bounding Box</th>
+                </tr>
+              </thead>
+
+              <tbody id="detections-table">
+                <tr>
+                  <td colspan="4" class="empty-table">
+                    No detections to display
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Camera section -->
+        <section class="panel camera-panel" id="camera">
+          <div class="panel-heading">
+            <h2>Live Camera Detection</h2>
+            <p>Use your webcam to detect objects in real-world environments.</p>
+          </div>
+
+          <div class="camera-workspace">
+            <div
+              class="camera-video-container"
+              style="position: relative; width: 100%"
+            >
+              <video
+                id="camera-video"
+                autoplay
+                playsinline
+                muted
+                style="width: 100%; display: block; border-radius: 12px"
+              ></video>
+
+              <canvas
+                id="camera-overlay"
+                style="
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  width: 100%;
+                  height: 100%;
+                  pointer-events: none;
+                "
+              ></canvas>
+            </div>
+
+            <div class="camera-controls">
+              <button class="primary-button" id="start-camera">
+                Start Camera
+              </button>
+
+              <button class="primary-button" id="stop-camera" disabled>
+                Stop Camera
+              </button>
+            </div>
+
+            <p id="camera-status" role="status" aria-live="polite">
+              Camera is not running.
+            </p>
+          </div>
+        </section>
+
+        <!-- Model information -->
+        <section class="panel model-panel" id="model-info">
+          <div class="panel-heading">
+            <h2>About the Model</h2>
+            <p>Architecture and supported detection classes.</p>
+          </div>
+
+          <div class="model-details">
+            <div>
+              <span>Architecture</span>
+              <strong>YOLO26n</strong>
+            </div>
+            <div>
+              <span>Training variant</span>
+              <strong>Original Dataset</strong>
+            </div>
+            <div>
+              <span>Detection classes</span>
+              <strong>2</strong>
+            </div>
+            <div>
+              <span>Input resolution</span>
+              <strong>640 × 640</strong>
+            </div>
+          </div>
+
+          <p class="model-note">
+            Experimental computer vision project. Detection results may include
+            false positives and missed objects, particularly in crowded scenes.
+          </p>
+        </section>
+
+        <footer class="footer">
+          HazWaste Vision · YOLO Object Detection Portfolio Project
+        </footer>
+      </main>
+    </div>
+
+    <script type="module" src="/static/js/app.js"></script>
+  </body>
+</html>
